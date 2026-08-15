@@ -9,8 +9,14 @@ export const appRelations = defineRelations({ manufactures, vehicles, engines },
     vehicles: r.many.vehicles(),
   },
   vehicles: {
-    manufactures: r.one.manufactures(),
-    engines: r.one.engines(),
+    manufactures: r.one.manufactures({
+      from: r.vehicles.manufacturerId,
+      to: r.manufactures.id,
+    }),
+    engines: r.one.engines({
+      from: r.vehicles.engineId,
+      to: r.engines.id,
+    }),
   },
   engines: {
     vehicles: r.many.vehicles(),
