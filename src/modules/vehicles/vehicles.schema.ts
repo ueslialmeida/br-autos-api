@@ -1,7 +1,7 @@
 import { pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 import { engines } from '../engines/engines.schema';
-import { manufactures } from '../manufactures/manufactures.schema';
+import { manufacturers } from '../manufacturers/manufacturers.schema';
 
 export const vehicles = pgTable('vehicles', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -9,7 +9,7 @@ export const vehicles = pgTable('vehicles', {
   generation: varchar('generation', { length: 255 }).notNull(),
   manufacturerId: uuid('manufacturer_id')
     .notNull()
-    .references(() => manufactures.id),
+    .references(() => manufacturers.id),
   engineId: uuid('engine_id')
     .notNull()
     .references(() => engines.id),
