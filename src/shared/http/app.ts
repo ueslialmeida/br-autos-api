@@ -1,4 +1,5 @@
 import logger from '@config/logger';
+import { manufacturersRoutes } from '@modules/manufacturers/manufacturers.routes';
 import { errorHandler } from '@shared/http/middlewares/errorHandler';
 import express from 'express';
 import helmet from 'helmet';
@@ -11,6 +12,8 @@ app.use(helmet()); // Security headers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } })); // HTTP request logging
+
+app.use('/manufacturers', manufacturersRoutes);
 
 // Default routes
 app.get('/', (req, res) => {
