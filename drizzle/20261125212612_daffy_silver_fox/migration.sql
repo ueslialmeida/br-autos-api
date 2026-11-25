@@ -1,0 +1,1 @@
+ALTER TABLE "engines" ALTER COLUMN "manufacturer_id" SET NOT NULL;

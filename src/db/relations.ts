@@ -1,8 +1,7 @@
+import { engines } from '@modules/engines/engines.schema';
+import { manufacturers } from '@modules/manufacturers/manufacturers.schema';
+import { vehicles } from '@modules/vehicles/vehicles.schema';
 import { defineRelations } from 'drizzle-orm';
-
-import { engines } from '../modules/engines/engines.schema';
-import { manufacturers } from '../modules/manufacturers/manufacturers.schema';
-import { vehicles } from '../modules/vehicles/vehicles.schema';
 
 export const appRelations = defineRelations({ manufacturers, vehicles, engines }, (r) => ({
   manufacturers: {
@@ -20,5 +19,9 @@ export const appRelations = defineRelations({ manufacturers, vehicles, engines }
   },
   engines: {
     vehicles: r.many.vehicles(),
+    manufacturers: r.one.manufacturers({
+      from: r.engines.manufacturerId,
+      to: r.manufacturers.id,
+    }),
   },
 }));
