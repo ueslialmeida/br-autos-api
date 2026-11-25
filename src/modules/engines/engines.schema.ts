@@ -1,3 +1,4 @@
+import { manufacturers } from '@modules/manufacturers/manufacturers.schema';
 import { integer, pgTable, real, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 export const engines = pgTable('engines', {
@@ -12,6 +13,9 @@ export const engines = pgTable('engines', {
   synchronism: varchar('synchronism', { length: 50 }).notNull(),
   aspiration: varchar('aspiration', { length: 50 }).notNull(),
   layout: varchar('layout', { length: 50 }).notNull(),
+  manufacturerId: uuid('manufacturer_id')
+    .notNull()
+    .references(() => manufacturers.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -1,0 +1,2 @@
+ALTER TABLE "engines" ADD COLUMN "manufacturer_id" uuid;--> statement-breakpoint
+ALTER TABLE "engines" ADD CONSTRAINT "engines_manufacturer_id_manufacturers_id_fkey" FOREIGN KEY ("manufacturer_id") REFERENCES "manufacturers"("id");
