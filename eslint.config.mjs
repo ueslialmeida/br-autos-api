@@ -23,10 +23,20 @@ export default [
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 
-  // 3. Suas regras customizadas e o Prettier
+  // 3. Regras customizadas e o Prettier
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.cy.ts'],
     plugins: {
