@@ -1,9 +1,14 @@
 import logger from '@config/logger';
 import { AppError } from '@shared/errors/AppError';
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
-export function errorHandler(error: unknown, _req: Request, res: Response): void {
+export function errorHandler(
+  error: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+): void {
   // Business logic errors
   if (error instanceof AppError) {
     logger.warn(`${error.name}: ${error.message}`);

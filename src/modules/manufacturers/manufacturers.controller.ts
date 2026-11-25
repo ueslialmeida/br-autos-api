@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-import { CreateManufacturerDTO } from '../dtos/create-manufacturer.dto';
-import { UpdateManufacturerDTO } from '../dtos/update-manufacturer.dto';
-import { CreateManufacturerService } from '../services/create-manufacturer.service';
-import { DeleteManufacturerService } from '../services/delete-manufacturer.service';
-import { GetManufacturerByIdService } from '../services/get-manufacturer-by-id.service';
-import { ListManufacturerService } from '../services/list-manufacturer.service';
-import { UpdateManufacturerService } from '../services/update-manufacturer.service';
+import { CreateManufacturerDTO } from './dtos/create-manufacturer.dto';
+import { UpdateManufacturerDTO } from './dtos/update-manufacturer.dto';
+import { CreateManufacturerService } from './services/create-manufacturer.service';
+import { DeleteManufacturerService } from './services/delete-manufacturer.service';
+import { GetManufacturerByIdService } from './services/get-manufacturer-by-id.service';
+import { ListManufacturerService } from './services/list-manufacturer.service';
+import { UpdateManufacturerService } from './services/update-manufacturer.service';
 
 const idParamSchema = z.object({
   id: z.uuid().min(1, 'ID é obrigatório'),

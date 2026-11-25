@@ -4,6 +4,8 @@
       "@config/*": ["./src/config/*"],
       "@modules/*": ["./src/modules/*"],
       "@shared/*": ["./src/shared/*"]
-    }
-  }
+    },
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*"]
 }
