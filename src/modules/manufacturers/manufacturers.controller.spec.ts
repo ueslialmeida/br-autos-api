@@ -6,6 +6,7 @@ describe('ManufacturersController', () => {
     createManufacturerService: { execute: jest.fn() },
     listManufacturerService: { execute: jest.fn() },
     getManufacturerByIdService: { execute: jest.fn() },
+    getManufacturerByNameService: { execute: jest.fn() },
     updateManufacturerService: { execute: jest.fn() },
     deleteManufacturerService: { execute: jest.fn() },
   });
@@ -16,6 +17,7 @@ describe('ManufacturersController', () => {
       services.createManufacturerService as never,
       services.listManufacturerService as never,
       services.getManufacturerByIdService as never,
+      services.getManufacturerByNameService as never,
       services.updateManufacturerService as never,
       services.deleteManufacturerService as never,
     );
@@ -92,6 +94,27 @@ describe('ManufacturersController', () => {
     expect(services.getManufacturerByIdService.execute).toHaveBeenCalledWith(
       '00000000-0000-0000-0000-000000000000',
     );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      status: 'success',
+      data: manufacturer,
+    });
+  });
+
+  it('deve buscar fabricante por nome e retornar status 200', async () => {
+    const { controller, services } = makeController();
+    const req = {
+      params: { name: 'Gurgel' },
+    } as unknown as Request;
+    const res = makeResponseMock();
+
+    const manufacturer = { id: '00000000-0000-0000-0000-000000000000', name: 'Gurgel' };
+    services.getManufacturerByNameService.execute.mockResolvedValue(manufacturer);
+
+    await controller.getByName(req, res);
+
+    expect(services.getManufacturerByNameService.execute).toHaveBeenCalledTimes(1);
+    expect(services.getManufacturerByNameService.execute).toHaveBeenCalledWith('Gurgel');
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       status: 'success',

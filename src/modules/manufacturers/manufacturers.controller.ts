@@ -1,16 +1,21 @@
+import { CreateManufacturerDTO, UpdateManufacturerDTO } from '@modules/manufacturers/dtos/index';
+import {
+  CreateManufacturerService,
+  DeleteManufacturerService,
+  GetManufacturerByIdService,
+  GetManufacturerByNameService,
+  ListManufacturerService,
+  UpdateManufacturerService,
+} from '@modules/manufacturers/services/index';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-import { CreateManufacturerDTO } from './dtos/create-manufacturer.dto';
-import { UpdateManufacturerDTO } from './dtos/update-manufacturer.dto';
-import { CreateManufacturerService } from './services/create-manufacturer.service';
-import { DeleteManufacturerService } from './services/delete-manufacturer.service';
-import { GetManufacturerByIdService } from './services/get-manufacturer-by-id.service';
-import { ListManufacturerService } from './services/list-manufacturer.service';
-import { UpdateManufacturerService } from './services/update-manufacturer.service';
-
 const idParamSchema = z.object({
   id: z.uuid().min(1, 'ID é obrigatório'),
+});
+
+const nameParamSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
 });
 
 export class ManufacturersController {
@@ -18,6 +23,7 @@ export class ManufacturersController {
     private readonly createManufacturerService: CreateManufacturerService,
     private readonly listManufacturerService: ListManufacturerService,
     private readonly getManufacturerByIdService: GetManufacturerByIdService,
+    private readonly getManufacturerByNameService: GetManufacturerByNameService,
     private readonly updateManufacturerService: UpdateManufacturerService,
     private readonly deleteManufacturerService: DeleteManufacturerService,
   ) {}
@@ -44,6 +50,16 @@ export class ManufacturersController {
   async getById(req: Request, res: Response): Promise<void> {
     const { id } = idParamSchema.parse(req.params);
     const manufacturer = await this.getManufacturerByIdService.execute(id);
+
+    res.status(200).json({
+      status: 'success',
+      data: manufacturer,
+    });
+  }
+
+  async getByName(req: Request, res: Response): Promise<void> {
+    const { name } = nameParamSchema.parse(req.params);
+    const manufacturer = await this.getManufacturerByNameService.execute(name);
 
     res.status(200).json({
       status: 'success',

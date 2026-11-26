@@ -4,7 +4,7 @@ import {
   manufacturers,
   NewManufacturer,
 } from '@modules/manufacturers/manufacturers.schema';
-import { eq } from 'drizzle-orm';
+import { eq, ilike } from 'drizzle-orm';
 
 export class ManufacturersRepository {
   async create(data: NewManufacturer): Promise<Manufacturer> {
@@ -25,7 +25,7 @@ export class ManufacturersRepository {
     const manufacturer = await db
       .select()
       .from(manufacturers)
-      .where(eq(manufacturers.name, name))
+      .where(ilike(manufacturers.name, name))
       .limit(1);
     return manufacturer[0];
   }
