@@ -5,11 +5,11 @@ import { NotFoundError } from '@shared/errors/AppError';
 export class UpdateVehicleService {
   constructor(private readonly repository: VehiclesRepository) {}
 
-  async execute(data: UpdateVehicleDTO) {
-    const vehicle = await this.repository.findById(data.id);
+  async execute(id: string, data: UpdateVehicleDTO) {
+    const vehicle = await this.repository.findById(id);
     if (!vehicle) {
       throw new NotFoundError('Veículo não encontrado.');
     }
-    return await this.repository.update(data.id, data);
+    return await this.repository.update(id, data);
   }
 }

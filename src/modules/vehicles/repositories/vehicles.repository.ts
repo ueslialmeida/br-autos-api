@@ -2,7 +2,17 @@ import { db } from '@config/database';
 import { engines } from '@modules/engines/engines.schema';
 import { manufacturers } from '@modules/manufacturers/manufacturers.schema';
 import { NewVehicle, Vehicle, vehicles } from '@modules/vehicles/vehicles.schema';
-import { and, eq, gte, ilike, lte } from 'drizzle-orm';
+import { and, eq, gte, ilike, isNull, lte, or, SQL } from 'drizzle-orm';
+
+export interface VehicleFilters {
+  startYear?: number;
+  endYear?: number;
+  model?: string;
+  manufacturerId?: string;
+  manufacturerName?: string;
+  engineId?: string;
+  engineCode?: string;
+}
 
 export class VehiclesRepository {
   async create(data: NewVehicle): Promise<Vehicle> {
@@ -55,27 +65,54 @@ export class VehiclesRepository {
     return result.map((row) => row.vehicle);
   }
 
-  async findByManufacturingPeriodFrom(startDate: number): Promise<Vehicle[]> {
-    return await db
-      .select()
-      .from(vehicles)
-      .where(gte(vehicles.manufacturingPeriodStart, startDate));
-  }
+  async findAll(filters: VehicleFilters = {}): Promise<Vehicle[]> {
+    const conditions: SQL[] = [];
 
-  async findByManufacturingPeriod(startDate: number, endDate: number): Promise<Vehicle[]> {
-    return await db
-      .select()
-      .from(vehicles)
-      .where(
-        and(
-          gte(vehicles.manufacturingPeriodStart, startDate),
-          lte(vehicles.manufacturingPeriodEnd, endDate),
-        ),
+    // Filtro de período de fabricação
+    if (filters.startYear !== undefined && filters.endYear !== undefined) {
+      conditions.push(
+        // O carro começou a ser fabricado antes ou durante o fim do período buscado
+        lte(vehicles.manufacturingPeriodStart, filters.endYear),
+        // E terminou de ser fabricado depois ou durante o início do período buscado
+        or(
+          gte(vehicles.manufacturingPeriodEnd, filters.startYear),
+          isNull(vehicles.manufacturingPeriodEnd), // Garante suporte a carros ainda em linha
+        )!,
       );
-  }
+    }
 
-  async findAll(): Promise<Vehicle[]> {
-    return await db.select().from(vehicles);
+    // Filtros diretos na tabela vehicles
+    if (filters.model) {
+      conditions.push(ilike(vehicles.model, `%${filters.model}%`));
+    }
+
+    if (filters.manufacturerId) {
+      conditions.push(eq(vehicles.manufacturerId, filters.manufacturerId));
+    }
+
+    if (filters.engineId) {
+      conditions.push(eq(vehicles.engineId, filters.engineId));
+    }
+
+    // Filtros em tabelas relacionadas (Manufacturers e Engines)
+    if (filters.manufacturerName) {
+      conditions.push(ilike(manufacturers.name, `%${filters.manufacturerName}%`));
+    }
+
+    if (filters.engineCode) {
+      conditions.push(ilike(engines.code, `%${filters.engineCode}%`));
+    }
+
+    // Monta a query base selecionando apenas os campos do veículo
+    const query = db
+      .select({ vehicle: vehicles })
+      .from(vehicles)
+      .leftJoin(manufacturers, eq(vehicles.manufacturerId, manufacturers.id))
+      .leftJoin(engines, eq(vehicles.engineId, engines.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    const result = await query;
+    return result.map((row) => row.vehicle);
   }
 
   async update(id: string, data: Partial<NewVehicle>): Promise<Vehicle | undefined> {

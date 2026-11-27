@@ -1,6 +1,7 @@
 import logger from '@config/logger';
 import { enginesRoutes } from '@modules/engines/engines.routes';
 import { manufacturersRoutes } from '@modules/manufacturers/manufacturers.routes';
+import { vehiclesRoutes } from '@modules/vehicles/vehicles.routes';
 import { errorHandler } from '@shared/http/middlewares/errorHandler';
 import express from 'express';
 import helmet from 'helmet';
@@ -14,8 +15,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } })); // HTTP request logging
 
-app.use('/manufacturer', manufacturersRoutes);
-app.use('/engine', enginesRoutes);
+// API routes
+app.use('/manufacturers', manufacturersRoutes);
+app.use('/engines', enginesRoutes);
+app.use('/vehicles', vehiclesRoutes);
 
 // Default routes
 app.get('/', (req, res) => {

@@ -7,9 +7,9 @@ export const updateVehicleSchema = z.object({
     .min(1, 'O modelo do veículo deve ter pelo menos 1 caractere')
     .max(255, 'O modelo do veículo deve ter no máximo 255 caracteres'),
   generation: z
-    .string()
-    .min(1, 'A geração do veículo deve ter pelo menos 1 caractere')
-    .max(255, 'A geração do veículo deve ter no máximo 255 caracteres'),
+    .number()
+    .int('A geração do veículo deve ser um número inteiro')
+    .min(1, 'A geração do veículo deve ser um número inteiro positivo'),
   manufacturerId: z.uuid('O ID do fabricante deve ser um UUID válido'),
   engineId: z.uuid('O ID do motor deve ser um UUID válido'),
   category: z

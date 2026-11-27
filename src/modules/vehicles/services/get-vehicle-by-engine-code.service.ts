@@ -1,13 +1,13 @@
 import type { VehiclesRepository } from '@modules/vehicles/repositories/vehicles.repository';
 import { NotFoundError } from '@shared/errors/AppError';
 
-export class GetVehicleByManufacturerNameService {
+export class GetVehicleByEngineCodeService {
   constructor(private readonly repository: VehiclesRepository) {}
 
-  async execute(manufacturerName: string) {
-    const vehicles = await this.repository.findByManufacturerName(manufacturerName);
+  async execute(engineCode: string) {
+    const vehicles = await this.repository.findByEngineCode(engineCode);
     if (!vehicles.length) {
-      throw new NotFoundError('Veículos não encontrados para esse fabricante.');
+      throw new NotFoundError('Veículos não encontrados para esse código de motor.');
     }
     return vehicles;
   }
