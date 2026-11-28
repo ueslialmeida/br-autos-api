@@ -2,7 +2,31 @@ import { db } from '@config/database';
 import { engines } from '@modules/engines/engines.schema';
 import { manufacturers } from '@modules/manufacturers/manufacturers.schema';
 import { NewVehicle, Vehicle, vehicles } from '@modules/vehicles/vehicles.schema';
-import { and, eq, gte, ilike, isNull, lte, or, SQL } from 'drizzle-orm';
+import { and, asc, countDistinct, desc, eq, gte, ilike, isNull, lte, or, SQL } from 'drizzle-orm';
+
+export type VehicleSortField = 'model' | 'generation' | 'manufacturingPeriodStart' | 'createdAt';
+export type SortOrder = 'asc' | 'desc';
+
+export interface VehiclePaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: VehicleSortField;
+  order?: SortOrder;
+}
+
+export interface PaginatedVehiclesRepositoryResult {
+  data: Vehicle[];
+  totalItems: number;
+  page: number;
+  limit: number;
+}
+
+const sortColumnMap = {
+  model: vehicles.model,
+  generation: vehicles.generation,
+  manufacturingPeriodStart: vehicles.manufacturingPeriodStart,
+  createdAt: vehicles.createdAt,
+} as const;
 
 export interface VehicleFilters {
   startYear?: number;
@@ -65,20 +89,30 @@ export class VehiclesRepository {
     return result.map((row) => row.vehicle);
   }
 
-  async findAll(filters: VehicleFilters = {}): Promise<Vehicle[]> {
+  async findAll(
+    filters: VehicleFilters = {},
+    options: VehiclePaginationOptions = {},
+  ): Promise<PaginatedVehiclesRepositoryResult> {
     const conditions: SQL[] = [];
 
-    // Filtro de período de fabricação
+    // Filtro de período de fabricação (suporta intervalo completo ou apenas um dos extremos)
     if (filters.startYear !== undefined && filters.endYear !== undefined) {
       conditions.push(
-        // O carro começou a ser fabricado antes ou durante o fim do período buscado
         lte(vehicles.manufacturingPeriodStart, filters.endYear),
-        // E terminou de ser fabricado depois ou durante o início do período buscado
         or(
           gte(vehicles.manufacturingPeriodEnd, filters.startYear),
-          isNull(vehicles.manufacturingPeriodEnd), // Garante suporte a carros ainda em linha
+          isNull(vehicles.manufacturingPeriodEnd),
         )!,
       );
+    } else if (filters.startYear !== undefined) {
+      conditions.push(
+        or(
+          gte(vehicles.manufacturingPeriodEnd, filters.startYear),
+          isNull(vehicles.manufacturingPeriodEnd),
+        )!,
+      );
+    } else if (filters.endYear !== undefined) {
+      conditions.push(lte(vehicles.manufacturingPeriodStart, filters.endYear));
     }
 
     // Filtros diretos na tabela vehicles
@@ -103,16 +137,40 @@ export class VehiclesRepository {
       conditions.push(ilike(engines.code, `%${filters.engineCode}%`));
     }
 
-    // Monta a query base selecionando apenas os campos do veículo
-    const query = db
-      .select({ vehicle: vehicles })
-      .from(vehicles)
-      .leftJoin(manufacturers, eq(vehicles.manufacturerId, manufacturers.id))
-      .leftJoin(engines, eq(vehicles.engineId, engines.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const result = await query;
-    return result.map((row) => row.vehicle);
+    // Paginação e ordenação
+    const page = options.page ?? 1;
+    const limit = options.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const orderDirection = options.order === 'desc' ? desc : asc;
+    const primarySortColumn = sortColumnMap[options.sortBy ?? 'createdAt'];
+
+    // Executa busca dos itens da página e contagem total filtrada em paralelo
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select({ vehicle: vehicles })
+        .from(vehicles)
+        .leftJoin(manufacturers, eq(vehicles.manufacturerId, manufacturers.id))
+        .leftJoin(engines, eq(vehicles.engineId, engines.id))
+        .where(whereClause)
+        .orderBy(orderDirection(primarySortColumn), asc(vehicles.id))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ total: countDistinct(vehicles.id) })
+        .from(vehicles)
+        .leftJoin(manufacturers, eq(vehicles.manufacturerId, manufacturers.id))
+        .leftJoin(engines, eq(vehicles.engineId, engines.id))
+        .where(whereClause),
+    ]);
+
+    return {
+      data: rows.map((row) => row.vehicle),
+      totalItems: Number(total),
+      page,
+      limit,
+    };
   }
 
   async update(id: string, data: Partial<NewVehicle>): Promise<Vehicle | undefined> {

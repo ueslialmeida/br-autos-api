@@ -1,3 +1,4 @@
+import { paginationQuerySchema } from '@shared/pagination';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -29,6 +30,16 @@ const manufacturerNameParamSchema = z.object({
   manufacturerName: z.string().min(1, 'Nome do fabricante é obrigatório'),
 });
 
+const listEnginesQuerySchema = paginationQuerySchema.extend({
+  code: z.string().min(1).optional(),
+  fuelType: z.string().min(1).optional(),
+  aspiration: z.string().min(1).optional(),
+  manufacturerId: z.uuid().optional(),
+  manufacturerName: z.string().min(1).optional(),
+  sortBy: z.enum(['code', 'displacement', 'power', 'torque', 'createdAt']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+});
+
 export class EnginesController {
   constructor(
     private readonly createEngineService: CreateEngineService,
@@ -51,12 +62,29 @@ export class EnginesController {
     });
   }
 
-  async list(_req: Request, res: Response): Promise<void> {
-    const engines = await this.listEngineService.execute();
+  async list(req: Request, res: Response): Promise<void> {
+    const query = listEnginesQuerySchema.parse(req.query);
+
+    const result = await this.listEngineService.execute(
+      {
+        code: query.code,
+        fuelType: query.fuelType,
+        aspiration: query.aspiration,
+        manufacturerId: query.manufacturerId,
+        manufacturerName: query.manufacturerName,
+      },
+      {
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        order: query.order,
+      },
+    );
 
     res.status(200).json({
       status: 'success',
-      data: engines,
+      data: result.data,
+      pagination: result.pagination,
     });
   }
 

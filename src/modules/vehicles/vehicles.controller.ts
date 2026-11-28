@@ -8,6 +8,7 @@ import {
   ListVehicleService,
   UpdateVehicleService,
 } from '@modules/vehicles/services/index';
+import { paginationQuerySchema } from '@shared/pagination';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -16,23 +17,29 @@ const idParamSchema = z.object({
 });
 
 // Schema completo para validar os query params possíveis na listagem
-const listVehiclesQuerySchema = z.object({
+const yearQuerySchema = z.coerce.number().int().min(1886).max(2100);
+
+const listVehiclesQuerySchema = paginationQuerySchema.extend({
   manufacturingPeriod: z
     .string()
     .regex(/^\d{4}(-\d{4})?$/, 'Use o formato AAAA ou AAAA-AAAA')
     .transform((val) => {
-      const parts = val.split('-').map(Number);
+      const [start, end] = val.split('-').map(Number);
       return {
-        startYear: parts[0],
-        endYear: parts[1] ?? parts[0],
+        startYear: start,
+        endYear: end ?? start,
       };
     })
     .optional(),
+  startYear: yearQuerySchema.optional(),
+  endYear: yearQuerySchema.optional(),
   model: z.string().min(1).optional(),
   manufacturerId: z.uuid().optional(),
   manufacturerName: z.string().min(1).optional(),
   engineId: z.uuid().optional(),
   engineCode: z.string().min(1).optional(),
+  sortBy: z.enum(['model', 'generation', 'manufacturingPeriodStart', 'createdAt']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
 });
 
 export class VehiclesController {
@@ -59,19 +66,28 @@ export class VehiclesController {
   async list(req: Request, res: Response): Promise<void> {
     const query = listVehiclesQuerySchema.parse(req.query);
 
-    const vehicles = await this.listVehicleService.execute({
-      startYear: query['manufacturingPeriod']?.startYear,
-      endYear: query['manufacturingPeriod']?.endYear,
-      model: query.model,
-      manufacturerId: query.manufacturerId,
-      manufacturerName: query.manufacturerName,
-      engineId: query.engineId,
-      engineCode: query.engineCode,
-    });
+    const result = await this.listVehicleService.execute(
+      {
+        startYear: query.startYear ?? query.manufacturingPeriod?.startYear,
+        endYear: query.endYear ?? query.manufacturingPeriod?.endYear,
+        model: query.model,
+        manufacturerId: query.manufacturerId,
+        manufacturerName: query.manufacturerName,
+        engineId: query.engineId,
+        engineCode: query.engineCode,
+      },
+      {
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        order: query.order,
+      },
+    );
 
     res.status(200).json({
       status: 'success',
-      data: vehicles,
+      data: result.data,
+      pagination: result.pagination,
     });
   }
 

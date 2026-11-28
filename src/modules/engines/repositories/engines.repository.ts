@@ -1,7 +1,40 @@
 import { db } from '@config/database';
 import { Engine, engines, NewEngine } from '@modules/engines/engines.schema';
 import { manufacturers } from '@modules/manufacturers/manufacturers.schema';
-import { eq, ilike } from 'drizzle-orm';
+import { and, asc, countDistinct, desc, eq, ilike, SQL } from 'drizzle-orm';
+
+export interface EngineFilters {
+  code?: string;
+  fuelType?: string;
+  aspiration?: string;
+  manufacturerId?: string;
+  manufacturerName?: string;
+}
+
+export type EngineSortField = 'code' | 'displacement' | 'power' | 'torque' | 'createdAt';
+export type SortOrder = 'asc' | 'desc';
+
+export interface EnginePaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: EngineSortField;
+  order?: SortOrder;
+}
+
+export interface PaginatedEnginesRepositoryResult {
+  data: Engine[];
+  totalItems: number;
+  page: number;
+  limit: number;
+}
+
+const sortColumnMap = {
+  code: engines.code,
+  displacement: engines.displacement,
+  power: engines.power,
+  torque: engines.torque,
+  createdAt: engines.createdAt,
+} as const;
 
 export class EnginesRepository {
   async create(data: NewEngine): Promise<Engine> {
@@ -35,8 +68,62 @@ export class EnginesRepository {
     return result.map((row) => row.engine);
   }
 
-  async findAll(): Promise<Engine[]> {
-    return await db.select().from(engines);
+  async findAll(
+    filters: EngineFilters = {},
+    options: EnginePaginationOptions = {},
+  ): Promise<PaginatedEnginesRepositoryResult> {
+    const conditions: SQL[] = [];
+
+    if (filters.code) {
+      conditions.push(ilike(engines.code, `%${filters.code}%`));
+    }
+
+    if (filters.fuelType) {
+      conditions.push(ilike(engines.fuelType, `%${filters.fuelType}%`));
+    }
+
+    if (filters.aspiration) {
+      conditions.push(ilike(engines.aspiration, `%${filters.aspiration}%`));
+    }
+
+    if (filters.manufacturerId) {
+      conditions.push(eq(engines.manufacturerId, filters.manufacturerId));
+    }
+
+    if (filters.manufacturerName) {
+      conditions.push(ilike(manufacturers.name, `%${filters.manufacturerName}%`));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const page = options.page ?? 1;
+    const limit = options.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const orderDirection = options.order === 'desc' ? desc : asc;
+    const primarySortColumn = sortColumnMap[options.sortBy ?? 'createdAt'];
+
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select({ engine: engines })
+        .from(engines)
+        .leftJoin(manufacturers, eq(engines.manufacturerId, manufacturers.id))
+        .where(whereClause)
+        .orderBy(orderDirection(primarySortColumn), asc(engines.id))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ total: countDistinct(engines.id) })
+        .from(engines)
+        .leftJoin(manufacturers, eq(engines.manufacturerId, manufacturers.id))
+        .where(whereClause),
+    ]);
+
+    return {
+      data: rows.map((row) => row.engine),
+      totalItems: Number(total),
+      page,
+      limit,
+    };
   }
 
   async update(id: string, data: Partial<NewEngine>): Promise<Engine | undefined> {

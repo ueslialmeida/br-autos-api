@@ -1,0 +1,1 @@
+ALTER TABLE "engines" DROP CONSTRAINT "engines_code_key";

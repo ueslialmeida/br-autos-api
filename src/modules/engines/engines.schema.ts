@@ -3,7 +3,7 @@ import { integer, pgTable, real, timestamp, uuid, varchar } from 'drizzle-orm/pg
 
 export const engines = pgTable('engines', {
   id: uuid('id').primaryKey().defaultRandom(),
-  code: varchar('code', { length: 255 }).notNull().unique(),
+  code: varchar('code', { length: 255 }).notNull(),
   displacement: real('displacement').notNull(),
   power: integer('power').notNull(),
   torque: real('torque').notNull(),

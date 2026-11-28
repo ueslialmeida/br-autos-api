@@ -111,26 +111,47 @@ describe('VehiclesController', () => {
   });
 
   describe('list', () => {
-    it('deve listar veículos sem filtros e retornar status 200', async () => {
+    it('deve listar veículos sem filtros usando paginação padrão e retornar status 200', async () => {
       const vehicles = [{ id: VALID_UUID, model: 'Gol' }];
+      const pagination = {
+        page: 1,
+        limit: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
+
       mockReq.query = {};
-      listVehicleService.execute.mockResolvedValue(vehicles as never);
+      listVehicleService.execute.mockResolvedValue({
+        data: vehicles,
+        pagination,
+      } as never);
 
       await controller.list(mockReq as Request, mockRes as Response);
 
-      expect(listVehicleService.execute).toHaveBeenCalledWith({
-        startYear: undefined,
-        endYear: undefined,
-        model: undefined,
-        manufacturerId: undefined,
-        manufacturerName: undefined,
-        engineId: undefined,
-        engineCode: undefined,
-      });
+      expect(listVehicleService.execute).toHaveBeenCalledWith(
+        {
+          startYear: undefined,
+          endYear: undefined,
+          model: undefined,
+          manufacturerId: undefined,
+          manufacturerName: undefined,
+          engineId: undefined,
+          engineCode: undefined,
+        },
+        {
+          page: 1,
+          limit: 20,
+          sortBy: undefined,
+          order: undefined,
+        },
+      );
       expect(statusMock).toHaveBeenCalledWith(200);
       expect(jsonMock).toHaveBeenCalledWith({
         status: 'success',
         data: vehicles,
+        pagination,
       });
     });
 
@@ -143,25 +164,53 @@ describe('VehiclesController', () => {
         engineId: SECOND_UUID,
         engineCode: '2ZR-FBE',
       };
-      listVehicleService.execute.mockResolvedValue([] as never);
+      listVehicleService.execute.mockResolvedValue({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      } as never);
 
       await controller.list(mockReq as Request, mockRes as Response);
 
-      expect(listVehicleService.execute).toHaveBeenCalledWith({
-        startYear: 2018,
-        endYear: 2023,
-        model: 'Corolla',
-        manufacturerId: VALID_UUID,
-        manufacturerName: 'Toyota',
-        engineId: SECOND_UUID,
-        engineCode: '2ZR-FBE',
-      });
+      expect(listVehicleService.execute).toHaveBeenCalledWith(
+        {
+          startYear: 2018,
+          endYear: 2023,
+          model: 'Corolla',
+          manufacturerId: VALID_UUID,
+          manufacturerName: 'Toyota',
+          engineId: SECOND_UUID,
+          engineCode: '2ZR-FBE',
+        },
+        {
+          page: 1,
+          limit: 20,
+          sortBy: undefined,
+          order: undefined,
+        },
+      );
       expect(statusMock).toHaveBeenCalledWith(200);
     });
 
     it('deve usar o mesmo ano para startYear e endYear quando manufacturingPeriod tiver apenas AAAA', async () => {
       mockReq.query = { manufacturingPeriod: '2025' };
-      listVehicleService.execute.mockResolvedValue([] as never);
+      listVehicleService.execute.mockResolvedValue({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      } as never);
 
       await controller.list(mockReq as Request, mockRes as Response);
 
@@ -170,7 +219,41 @@ describe('VehiclesController', () => {
           startYear: 2025,
           endYear: 2025,
         }),
+        expect.objectContaining({
+          page: 1,
+          limit: 20,
+        }),
       );
+    });
+
+    it('deve repassar page, limit, sortBy e order convertidos corretamente para o service', async () => {
+      mockReq.query = {
+        page: '2',
+        limit: '10',
+        sortBy: 'model',
+        order: 'desc',
+      };
+      listVehicleService.execute.mockResolvedValue({
+        data: [],
+        pagination: {
+          page: 2,
+          limit: 10,
+          totalItems: 15,
+          totalPages: 2,
+          hasNextPage: false,
+          hasPreviousPage: true,
+        },
+      } as never);
+
+      await controller.list(mockReq as Request, mockRes as Response);
+
+      expect(listVehicleService.execute).toHaveBeenCalledWith(expect.any(Object), {
+        page: 2,
+        limit: 10,
+        sortBy: 'model',
+        order: 'desc',
+      });
+      expect(statusMock).toHaveBeenCalledWith(200);
     });
 
     it('deve lançar ZodError quando manufacturingPeriod tiver formato inválido', async () => {
@@ -185,6 +268,25 @@ describe('VehiclesController', () => {
 
     it('deve lançar ZodError quando manufacturerId ou engineId não forem UUIDs válidos', async () => {
       mockReq.query = { manufacturerId: 'id-invalido' };
+
+      await expect(controller.list(mockReq as Request, mockRes as Response)).rejects.toThrow(
+        ZodError,
+      );
+      expect(listVehicleService.execute).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar ZodError quando page ou limit forem inválidos', async () => {
+      mockReq.query = { page: '0', limit: '101' };
+
+      await expect(controller.list(mockReq as Request, mockRes as Response)).rejects.toThrow(
+        ZodError,
+      );
+      expect(listVehicleService.execute).not.toHaveBeenCalled();
+      expect(statusMock).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar ZodError quando sortBy ou order não forem permitidos', async () => {
+      mockReq.query = { sortBy: 'invalidField', order: 'sideways' };
 
       await expect(controller.list(mockReq as Request, mockRes as Response)).rejects.toThrow(
         ZodError,

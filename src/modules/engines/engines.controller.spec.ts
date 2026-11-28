@@ -1,5 +1,6 @@
 import { EnginesController } from '@modules/engines/engines.controller';
 import type { Request, Response } from 'express';
+import { ZodError } from 'zod';
 
 describe('EnginesController', () => {
   const makeServicesMock = () => ({
@@ -61,25 +62,121 @@ describe('EnginesController', () => {
     });
   });
 
-  it('deve listar motores e retornar status 200', async () => {
+  it('deve listar motores com paginação padrão e retornar status 200', async () => {
     const { controller, services } = makeController();
-    const req = {} as Request;
+    const req = { query: {} } as Request;
     const res = makeResponseMock();
 
     const enginesList = [
-      { id: 'eng-1', code: 'ENG-001', name: 'Motor 1' },
-      { id: 'eng-2', code: 'ENG-002', name: 'Motor 2' },
+      { id: 'eng-1', code: 'ENG-001' },
+      { id: 'eng-2', code: 'ENG-002' },
     ];
-    services.listEngineService.execute.mockResolvedValue(enginesList);
+    const pagination = {
+      page: 1,
+      limit: 20,
+      totalItems: 2,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    };
+
+    services.listEngineService.execute.mockResolvedValue({
+      data: enginesList,
+      pagination,
+    });
 
     await controller.list(req, res);
 
     expect(services.listEngineService.execute).toHaveBeenCalledTimes(1);
+    expect(services.listEngineService.execute).toHaveBeenCalledWith(
+      {
+        code: undefined,
+        fuelType: undefined,
+        aspiration: undefined,
+        manufacturerId: undefined,
+        manufacturerName: undefined,
+      },
+      {
+        page: 1,
+        limit: 20,
+        sortBy: undefined,
+        order: undefined,
+      },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       status: 'success',
       data: enginesList,
+      pagination,
     });
+  });
+
+  it('deve repassar filtros e opções de paginação/ordenação para listEngineService.execute', async () => {
+    const { controller, services } = makeController();
+    const manufacturerId = '550e8400-e29b-41d4-a716-446655440000';
+    const req = {
+      query: {
+        code: 'TSI',
+        fuelType: 'Flex',
+        aspiration: 'Turbo',
+        manufacturerId,
+        manufacturerName: 'Volkswagen',
+        page: '2',
+        limit: '10',
+        sortBy: 'power',
+        order: 'desc',
+      },
+    } as unknown as Request;
+    const res = makeResponseMock();
+
+    const paginatedResponse = {
+      data: [{ id: 'eng-1', code: '200 TSI' }],
+      pagination: {
+        page: 2,
+        limit: 10,
+        totalItems: 15,
+        totalPages: 2,
+        hasNextPage: false,
+        hasPreviousPage: true,
+      },
+    };
+    services.listEngineService.execute.mockResolvedValue(paginatedResponse);
+
+    await controller.list(req, res);
+
+    expect(services.listEngineService.execute).toHaveBeenCalledWith(
+      {
+        code: 'TSI',
+        fuelType: 'Flex',
+        aspiration: 'Turbo',
+        manufacturerId,
+        manufacturerName: 'Volkswagen',
+      },
+      {
+        page: 2,
+        limit: 10,
+        sortBy: 'power',
+        order: 'desc',
+      },
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      status: 'success',
+      ...paginatedResponse,
+    });
+  });
+
+  it('deve lançar ZodError quando page, limit, manufacturerId ou sortBy forem inválidos', async () => {
+    const { controller, services } = makeController();
+    const res = makeResponseMock();
+
+    const invalidReq = {
+      query: { page: '0', limit: '101', manufacturerId: 'nao-e-uuid', sortBy: 'invalid' },
+    } as unknown as Request;
+
+    await expect(controller.list(invalidReq, res)).rejects.toThrow(ZodError);
+    expect(services.listEngineService.execute).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it('deve obter um motor por ID e retornar status 200', async () => {

@@ -1,5 +1,6 @@
 import type {
   VehicleFilters,
+  VehiclePaginationOptions,
   VehiclesRepository,
 } from '@modules/vehicles/repositories/vehicles.repository';
 
@@ -26,22 +27,37 @@ describe('ListVehicleService', () => {
     jest.clearAllMocks();
   });
 
-  it('deve listar todos os veículos quando nenhum filtro for informado', async () => {
+  it('deve listar veículos com paginação padrão quando nenhum filtro ou opção for informada', async () => {
     const vehicles = [
       { id: FIRST_VEHICLE_UUID, model: 'Onix Plus' },
       { id: SECOND_VEHICLE_UUID, model: 'Corolla' },
     ];
 
-    repository.findAll.mockResolvedValue(vehicles as never);
+    repository.findAll.mockResolvedValue({
+      data: vehicles,
+      totalItems: 2,
+      page: 1,
+      limit: 20,
+    } as never);
 
     const result = await service.execute();
 
     expect(repository.findAll).toHaveBeenCalledTimes(1);
-    expect(repository.findAll).toHaveBeenCalledWith(undefined);
-    expect(result).toEqual(vehicles);
+    expect(repository.findAll).toHaveBeenCalledWith({}, {});
+    expect(result).toEqual({
+      data: vehicles,
+      pagination: {
+        page: 1,
+        limit: 20,
+        totalItems: 2,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
   });
 
-  it('deve repassar todos os filtros de VehicleFilters para repository.findAll', async () => {
+  it('deve repassar todos os filtros e opções de paginação para repository.findAll', async () => {
     const filters: VehicleFilters = {
       startYear: 2020,
       endYear: 2024,
@@ -51,30 +67,80 @@ describe('ListVehicleService', () => {
       engineId: ENGINE_UUID,
       engineCode: 'SPE/4 1.8',
     };
-
-    const filteredVehicles = [{ id: FIRST_VEHICLE_UUID, ...filters }];
-    repository.findAll.mockResolvedValue(filteredVehicles as never);
-
-    const result = await service.execute(filters);
-
-    expect(repository.findAll).toHaveBeenCalledTimes(1);
-    expect(repository.findAll).toHaveBeenCalledWith(filters);
-    expect(result).toEqual(filteredVehicles);
-  });
-
-  it('deve repassar filtros parciais corretamente', async () => {
-    const filters: VehicleFilters = {
-      startYear: 2022,
-      endYear: 2022,
-      model: 'HB20',
+    const pagination: VehiclePaginationOptions = {
+      page: 2,
+      limit: 5,
+      sortBy: 'model',
+      order: 'asc',
     };
 
-    repository.findAll.mockResolvedValue([] as never);
+    const filteredVehicles = [{ id: FIRST_VEHICLE_UUID, model: 'Cobalt' }];
+    repository.findAll.mockResolvedValue({
+      data: filteredVehicles,
+      totalItems: 6,
+      page: 2,
+      limit: 5,
+    } as never);
 
-    const result = await service.execute(filters);
+    const result = await service.execute(filters, pagination);
 
-    expect(repository.findAll).toHaveBeenCalledWith(filters);
-    expect(result).toEqual([]);
+    expect(repository.findAll).toHaveBeenCalledTimes(1);
+    expect(repository.findAll).toHaveBeenCalledWith(filters, pagination);
+    expect(result).toEqual({
+      data: filteredVehicles,
+      pagination: {
+        page: 2,
+        limit: 5,
+        totalItems: 6,
+        totalPages: 2,
+        hasNextPage: false,
+        hasPreviousPage: true,
+      },
+    });
+  });
+
+  it('deve calcular corretamente totalPages, hasNextPage e hasPreviousPage em página intermediária', async () => {
+    const vehicles = [{ id: SECOND_VEHICLE_UUID, model: 'HB20' }];
+    repository.findAll.mockResolvedValue({
+      data: vehicles,
+      totalItems: 25,
+      page: 2,
+      limit: 10,
+    } as never);
+
+    const result = await service.execute({ model: 'HB20' }, { page: 2, limit: 10 });
+
+    expect(result.pagination).toEqual({
+      page: 2,
+      limit: 10,
+      totalItems: 25,
+      totalPages: 3,
+      hasNextPage: true,
+      hasPreviousPage: true,
+    });
+  });
+
+  it('deve retornar totalPages 0 e flags falsas quando não houver resultados', async () => {
+    repository.findAll.mockResolvedValue({
+      data: [],
+      totalItems: 0,
+      page: 1,
+      limit: 20,
+    } as never);
+
+    const result = await service.execute({ model: 'Inexistente' });
+
+    expect(result).toEqual({
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        totalItems: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
   });
 
   it('deve propagar erro caso repository.findAll falhe', async () => {
@@ -83,6 +149,6 @@ describe('ListVehicleService', () => {
 
     await expect(service.execute({ model: 'Civic' })).rejects.toThrow('Falha ao listar veículos');
     expect(repository.findAll).toHaveBeenCalledTimes(1);
-    expect(repository.findAll).toHaveBeenCalledWith({ model: 'Civic' });
+    expect(repository.findAll).toHaveBeenCalledWith({ model: 'Civic' }, {});
   });
 });
